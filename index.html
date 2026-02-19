@@ -971,7 +971,6 @@ const App = {
   /* ─── Veo API call (image-to-video) ──────────────────────── */
   async callVeoModel(firstFrame, prompt, shotType, ratio) {
     const aspectRatio = ratio === '16:9' ? '16:9' : ratio === '1:1' ? '1:1' : '9:16';
-    const generateAudio = shotType === 'hold'; // hold = person speaking on camera
 
     const instance = { prompt };
     if (firstFrame) {
@@ -986,8 +985,7 @@ const App = {
       parameters: {
         aspectRatio,
         durationSeconds: 8,
-        enhancePrompt: false,
-        generateAudio
+        enhancePrompt: false
       }
     };
 
