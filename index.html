@@ -991,10 +991,12 @@ const App = {
 
     const body = {
       contents: [{ parts }],
-      generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+      generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
     };
 
     const data = await this._gemini(this.IMAGE_MODEL, body);
+    console.log('[UGC Studio] Raw image API response:', JSON.stringify(data, null, 2));
+
     const responseParts = data.candidates?.[0]?.content?.parts || [];
 
     // Check for image data
@@ -1006,14 +1008,15 @@ const App = {
 
     // No image returned — surface the actual reason
     const finishReason = data.candidates?.[0]?.finishReason || 'UNKNOWN';
-    const safetyRatings = data.candidates?.[0]?.safetyRatings;
     const textResponse = responseParts.find(p => p.text)?.text || '';
     const blockReason = data.promptFeedback?.blockReason;
 
+    console.warn('[UGC Studio] No image found. finishReason:', finishReason, '| blockReason:', blockReason, '| text:', textResponse);
+
     if (blockReason) throw new Error(`Blocked by safety filter: ${blockReason}`);
     if (finishReason === 'SAFETY') throw new Error('Image blocked by safety filters.');
-    if (textResponse) throw new Error(`Model returned text instead of image: "${textResponse.substring(0, 120)}"`);
-    throw new Error(`No image in response (finishReason: ${finishReason}). Check model name and API key permissions.`);
+    if (textResponse) throw new Error(`Model returned text instead of image: "${textResponse.substring(0, 200)}"`);
+    throw new Error(`No image in response (finishReason: ${finishReason}). Open DevTools → Console for full response details.`);
   },
 
   /* ─── Gemini API wrapper ─────────────────────────────────── */
