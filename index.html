@@ -278,7 +278,17 @@
       transform: translateY(-4px);
       box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(42,174,224,0.15);
     }
-    .img-card img { width: 100%; display: block; aspect-ratio: 3/4; object-fit: cover; }
+    .img-card img  { width: 100%; display: block; aspect-ratio: 3/4; object-fit: cover; }
+    .img-card video {
+      width: 100%; display: block; object-fit: cover; background: #000;
+    }
+    /* ─── Mode toggle (reuses ratio-toggle styles) ──────────── */
+    .mode-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em;
+      padding: 2px 10px; border-radius: var(--radius-pill);
+      background: rgba(42,174,224,0.12); color: var(--cyan); border: 1px solid var(--cyan-border);
+    }
     .img-card-foot {
       padding: 10px 14px; display: flex; align-items: center;
       justify-content: space-between; gap: 8px;
@@ -390,6 +400,15 @@
           <label>Product Page URL</label>
           <input type="url" id="product-url" placeholder="https://example.com/products/your-product"
             onkeydown="if(event.key==='Enter') App.analyzeProduct()">
+        </div>
+
+        <!-- Output Mode -->
+        <div class="field">
+          <label>Output Mode</label>
+          <div class="ratio-toggle" id="mode-toggle">
+            <button type="button" class="ratio-btn active" data-mode="image" onclick="App.setMode(this)">📷 Image</button>
+            <button type="button" class="ratio-btn" data-mode="video" onclick="App.setMode(this)">🎬 Video</button>
+          </div>
         </div>
 
         <!-- Shot Types -->
@@ -511,6 +530,7 @@
           <button class="btn btn-primary" id="generate-btn" onclick="App.generateImages()" style="flex:1;">
             ✨ Generate UGC Shots
           </button>
+          <!-- label updated dynamically by setMode() -->
           <button class="btn btn-secondary" onclick="App.resetAnalysis()">Re-analyze</button>
         </div>
       </div>
@@ -597,6 +617,8 @@ const App = {
   // Check: https://ai.google.dev/gemini-api/docs/image-generation
   TEXT_MODEL:  'gemini-2.0-flash',
   IMAGE_MODEL: 'gemini-3-pro-image-preview',
+  // NOTE: Veo 3.1 Fast — verify model name at ai.google.dev if generation fails
+  VEO_MODEL:   'veo-3.1-fast',
   API:         'https://generativelanguage.googleapis.com/v1beta/models',
   STORE_KEY:   'ugc_studio_api_key',
 
@@ -622,6 +644,7 @@ const App = {
   results:       [],
   opts:          {},
   selectedRatio: '9:16',
+  selectedMode:  'image',
 
   /* ─── Boot ───────────────────────────────────────────────── */
   init() {
@@ -737,13 +760,25 @@ const App = {
   },
 
   setRatio(btn) {
-    document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.ratio-btn:not([data-mode])').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     this.selectedRatio = btn.dataset.ratio;
   },
 
+  setMode(btn) {
+    document.querySelectorAll('#mode-toggle .ratio-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    this.selectedMode = btn.dataset.mode;
+    const genBtn = document.getElementById('generate-btn');
+    if (genBtn) genBtn.innerHTML = this.selectedMode === 'video'
+      ? '🎬 Generate UGC Videos'
+      : '✨ Generate UGC Shots';
+  },
+
   /* ─── Main generation flow ───────────────────────────────── */
   async generateImages() {
+    if (this.selectedMode === 'video') return this.generateVideos();
+
     const selectedShots = [...document.querySelectorAll('.shot-cb:checked')].map(c => c.value);
     // 2x output per shot type — duplicate the list so each type generates two distinct images
     this.opts = {
@@ -824,6 +859,214 @@ const App = {
       this.alert('progress-error', 'Generation failed: ' + err.message);
       document.getElementById('cancel-btn').textContent = '← Back to Form';
     }
+  },
+
+  /* ─── Video generation flow ──────────────────────────────── */
+  async generateVideos() {
+    const selectedShots = [...document.querySelectorAll('.shot-cb:checked')].map(c => c.value);
+    if (!selectedShots.length) {
+      this.alert('form-error', 'Select at least one shot type.'); return;
+    }
+    // 2x per shot type
+    this.opts = {
+      shots:     [...selectedShots, ...selectedShots],
+      person:    document.getElementById('opt-person').value,
+      aesthetic: document.getElementById('opt-aesthetic').value,
+      context:   document.getElementById('opt-context').value.trim(),
+      ratio:     this.selectedRatio
+    };
+
+    this.showState('progress');
+    this.results = [];
+    ['stp-scrape','stp-image','stp-prompts','stp-gen'].forEach(id => this.setStep(id, 'pending'));
+    document.querySelector('#state-progress h2').textContent = 'Generating Your UGC Videos';
+    document.querySelector('#state-progress p').textContent = 'Hang tight — each video takes ~1-2 minutes to generate';
+
+    try {
+      // Step 1 — product analysis (reuse cached if available)
+      this.setStep('stp-scrape', 'done');
+      document.getElementById('stp-scrape-sub').textContent =
+        'Found: ' + this.productData.productName + ' by ' + (this.productData.brandName || '?');
+
+      // Step 2 — product image
+      this.setStep('stp-image', 'active');
+      if (!this.productImg && this.productData?.primaryImageUrl) {
+        try { this.productImg = await this.fetchProductImage(this.productData.primaryImageUrl); } catch {}
+      }
+      this.setStep('stp-image', 'done');
+
+      // Step 3 — first-frame prompts (same image prompts drive the first frame)
+      this.setStep('stp-prompts', 'active');
+      const framePrompts = await this.buildPrompts(this.productData, this.opts);
+      this.setStep('stp-prompts', 'done');
+
+      // Step 4 — generate videos
+      this.setStep('stp-gen', 'active');
+      this.showState('results');
+      const grid = document.getElementById('img-grid');
+      grid.innerHTML = '';
+      document.getElementById('gen-status').classList.add('show');
+      document.getElementById('dl-all-btn').style.display = 'none';
+
+      const cssRatio = this.opts.ratio.replace(':', '/');
+      const personDesc = {
+        auto: 'a person matching the target demographic', woman: 'a woman', man: 'a man', diverse: 'diverse individuals'
+      }[this.opts.person] || 'a person';
+      const aestheticDesc = {
+        auto: this.productData.brandAesthetic || 'natural and authentic', candid: 'raw and candid',
+        bright: 'bright and airy', moody: 'moody and atmospheric', minimal: 'clean and minimal'
+      }[this.opts.aesthetic] || 'authentic';
+
+      // Insert skeleton cards
+      for (let i = 0; i < this.opts.shots.length; i++) {
+        const card = document.createElement('div');
+        card.className = 'img-card'; card.id = 'skel-' + i;
+        card.innerHTML = `<div class="skel" style="aspect-ratio:${cssRatio}"></div><div class="skel-foot"><div class="skel-line"></div></div>`;
+        grid.appendChild(card);
+      }
+
+      for (let i = 0; i < this.opts.shots.length; i++) {
+        const type = this.opts.shots[i] || 'lifestyle';
+        document.getElementById('gen-status-text').textContent =
+          'Generating video ' + (i+1) + ' of ' + this.opts.shots.length + ' (' + (this.SHOT_LABEL[type] || type) + ')…';
+        try {
+          // First frame
+          const firstFrame = await this.callImageModel(framePrompts[i], this.productImg, this.opts.ratio);
+          // Video motion prompt
+          const videoPrompt = this.buildVideoPrompt(this.productData, type, personDesc, aestheticDesc);
+          // Generate video from first frame
+          const videoData = await this.callVeoModel(firstFrame, videoPrompt, type, this.opts.ratio);
+          this.results.push({ videoData, shotType: type, isVideo: true });
+          this.fillVideoCard(i, videoData, type);
+          this.updateCount();
+        } catch (err) {
+          this.fillCardError(i, type, err.message);
+        }
+      }
+
+      document.getElementById('gen-status').classList.remove('show');
+      if (this.results.length > 0) document.getElementById('dl-all-btn').style.display = '';
+      document.querySelector('#state-progress h2').textContent = 'Generating Your UGC Shots';
+      document.querySelector('#state-progress p').textContent = 'Hang tight — this typically takes 30–90 seconds per image';
+
+    } catch (err) {
+      this.alert('progress-error', 'Generation failed: ' + err.message);
+      document.getElementById('cancel-btn').textContent = '← Back to Form';
+      document.querySelector('#state-progress h2').textContent = 'Generating Your UGC Shots';
+      document.querySelector('#state-progress p').textContent = 'Hang tight — this typically takes 30–90 seconds per image';
+    }
+  },
+
+  /* ─── Veo API call (image-to-video) ──────────────────────── */
+  async callVeoModel(firstFrame, prompt, shotType, ratio) {
+    const aspectRatio = ratio === '16:9' ? '16:9' : ratio === '1:1' ? '1:1' : '9:16';
+    const generateAudio = shotType === 'hold'; // hold = person speaking on camera
+
+    const instance = { prompt };
+    if (firstFrame) {
+      instance.image = { bytesBase64Encoded: firstFrame.data };
+    }
+
+    const body = {
+      instances: [instance],
+      parameters: {
+        aspectRatio,
+        durationSeconds: 5,
+        enhancePrompt: false,
+        generateAudio
+      }
+    };
+
+    // Start long-running operation
+    const initRes = await fetch(
+      `${this.API}/${this.VEO_MODEL}:predictLongRunning?key=${this.apiKey}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    );
+    if (!initRes.ok) {
+      const err = await initRes.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Veo API error ${initRes.status}`);
+    }
+
+    const operation = await initRes.json();
+    const opName = operation.name;
+    if (!opName) throw new Error('Veo did not return an operation name. Check VEO_MODEL is correct.');
+
+    // Poll every 5s, up to 3 minutes
+    for (let poll = 0; poll < 36; poll++) {
+      await new Promise(r => setTimeout(r, 5000));
+      const pollRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/${opName}?key=${this.apiKey}`
+      );
+      const pollData = await pollRes.json();
+
+      if (pollData.done) {
+        if (pollData.error) throw new Error(pollData.error.message || 'Veo operation failed');
+        const samples = pollData.response?.generateVideoResponse?.generatedSamples;
+        const encodedVideo = samples?.[0]?.video?.encodedVideo;
+        const mimeType = samples?.[0]?.video?.mimeType || 'video/mp4';
+        if (!encodedVideo) throw new Error('Veo returned no video data in response');
+        return { data: encodedVideo, mimeType };
+      }
+
+      if (pollData.error) throw new Error(pollData.error.message || 'Veo operation failed');
+    }
+    throw new Error('Veo timed out after 3 minutes');
+  },
+
+  /* ─── Video motion prompt per shot type ──────────────────── */
+  buildVideoPrompt(d, shotType, personDesc, aestheticDesc) {
+    const product = ((d.productColor || '') + ' ' + d.productName).trim();
+    const settings = {
+      hold:
+        `${personDesc} casually holding the ${product} and speaking directly to camera. ` +
+        `They give a short, genuine 5–8 word review — authentic and conversational, like a real customer video. ` +
+        `Natural slight camera shake, handheld iPhone feel. ${aestheticDesc} lighting.`,
+
+      lifestyle:
+        `The ${product} rests in a beautiful real-world setting. Subtle ambient motion only — ` +
+        `soft light shifting, steam, gentle breeze moving fabric or leaves, bokeh background. ` +
+        `Absolutely no people, no hands. Cinematic slow-motion lifestyle product video. ${aestheticDesc}.`,
+
+      unboxing:
+        `${personDesc}'s hands carefully open the ${product} packaging. ` +
+        `Deliberate, satisfying reveal — tissue paper rustling, lid lifting, product emerging into frame. ` +
+        `Genuine curiosity and delight. Natural light, slightly shaky handheld iPhone feel.`,
+
+      social:
+        `Group of friends casually using and enjoying the ${product} together. ` +
+        `Candid social moments, natural laughter and interaction. ` +
+        `Warm ambient light, handheld iPhone feel, ${aestheticDesc}.`,
+
+      outdoor:
+        `${personDesc} confidently using the ${product} in a natural outdoor environment. ` +
+        `Energetic, purposeful movement. Sun-drenched or golden-hour light. ` +
+        `Slightly shaky handheld iPhone feel, ${aestheticDesc}.`,
+
+      detail:
+        `Slow cinematic push-in or lateral pan across the ${product}, ` +
+        `revealing texture, colour, material quality and design details up close. ` +
+        `No people. Macro-style depth of field, ${aestheticDesc}.`
+    };
+    return settings[shotType] || settings.lifestyle;
+  },
+
+  /* ─── Video result card ───────────────────────────────────── */
+  fillVideoCard(index, videoData, shotType) {
+    const skel = document.getElementById('skel-' + index);
+    if (!skel) return;
+    const dataUrl = `data:${videoData.mimeType};base64,${videoData.data}`;
+    const resultIndex = this.results.length - 1;
+    const cssRatio = (this.opts.ratio || '9:16').replace(':', '/');
+    const hasAudio = shotType === 'hold';
+    skel.innerHTML = `
+      <video src="${dataUrl}" style="aspect-ratio:${cssRatio}"
+        ${hasAudio ? 'controls' : 'autoplay loop muted'} playsinline></video>
+      <div class="img-card-foot">
+        <span class="shot-badge">
+          <span class="mode-badge">🎬 Video</span>&nbsp;${this.SHOT_LABEL[shotType] || shotType}
+        </span>
+        <button class="btn btn-secondary btn-sm" onclick="App.downloadByIndex(${resultIndex})">↓ Save</button>
+      </div>`;
   },
 
   /* ─── Step helper ────────────────────────────────────────── */
@@ -1065,7 +1308,8 @@ const App = {
 
   updateCount() {
     const n = this.results.length;
-    document.getElementById('result-count').textContent = n + ' image' + (n !== 1 ? 's' : '') + ' generated';
+    const noun = this.selectedMode === 'video' ? 'video' : 'image';
+    document.getElementById('result-count').textContent = n + ' ' + noun + (n !== 1 ? 's' : '') + ' generated';
   },
 
   /* ─── Download ───────────────────────────────────────────── */
@@ -1077,21 +1321,30 @@ const App = {
 
   downloadByIndex(i) {
     const r = this.results[i];
-    if (!r?.imgData?.data) return;
-    const dataUrl = `data:${r.imgData.mimeType};base64,${r.imgData.data}`;
-    this.download(dataUrl, `ugc-${r.shotType}-${i + 1}.jpg`);
+    if (r?.isVideo) {
+      if (!r.videoData?.data) return;
+      const ext = r.videoData.mimeType?.includes('mp4') ? 'mp4' : 'webm';
+      this.download(`data:${r.videoData.mimeType};base64,${r.videoData.data}`, `ugc-${r.shotType}-${i+1}.${ext}`);
+    } else {
+      if (!r?.imgData?.data) return;
+      this.download(`data:${r.imgData.mimeType};base64,${r.imgData.data}`, `ugc-${r.shotType}-${i+1}.jpg`);
+    }
   },
 
   async downloadAll() {
     if (!this.results.length) return;
     const JSZip = await this._loadScript('https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js', 'JSZip');
-    if (!JSZip) { alert('Could not load ZIP library. Download images individually.'); return; }
+    if (!JSZip) { alert('Could not load ZIP library. Download files individually.'); return; }
 
     const zip = new JSZip();
     const folder = zip.folder('ugc-studio-shots');
     this.results.forEach((r, i) => {
-      if (r.imgData?.data)
+      if (r.isVideo && r.videoData?.data) {
+        const ext = r.videoData.mimeType?.includes('mp4') ? 'mp4' : 'webm';
+        folder.file(`ugc-${r.shotType}-${i+1}.${ext}`, r.videoData.data, { base64: true });
+      } else if (r.imgData?.data) {
         folder.file(`ugc-${r.shotType}-${i+1}.jpg`, r.imgData.data, { base64: true });
+      }
     });
     const blob = await zip.generateAsync({ type: 'blob' });
     const url  = URL.createObjectURL(blob);
