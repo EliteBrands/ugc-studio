@@ -55,7 +55,7 @@ Once GitHub Pages is live (must be HTTPS):
 The Gemini image generation model name changes periodically. The current model is set in `index.html`:
 
 ```javascript
-IMAGE_MODEL: 'gemini-2.0-flash-preview-image-generation',
+IMAGE_MODEL: 'gemini-3-pro-image-preview',
 ```
 
 If image generation fails with a model-not-found error, check the latest model name at:
