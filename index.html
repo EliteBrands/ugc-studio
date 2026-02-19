@@ -727,8 +727,8 @@ const App = {
         const type = this.opts.shots[i] || 'lifestyle';
         try {
           const imgData = await this.callImageModel(prompts[i], this.productImg);
+          this.results.push({ imgData, shotType: type }); // push BEFORE fillCard so index is correct
           this.fillCard(i, imgData, type);
-          this.results.push({ imgData, shotType: type });
           this.updateCount();
         } catch (err) {
           this.fillCardError(i, type, err.message);
@@ -935,12 +935,13 @@ const App = {
     const skel = document.getElementById('skel-' + index);
     if (!skel) return;
     const dataUrl = `data:${imgData.mimeType};base64,${imgData.data}`;
-    const ts = Date.now();
+    // Store result so download can look up by index (avoids embedding huge base64 in onclick attr)
+    const resultIndex = this.results.length - 1;
     skel.innerHTML = `
       <img src="${dataUrl}" alt="${this.SHOT_LABEL[shotType] || shotType}" loading="lazy">
       <div class="img-card-foot">
         <span class="shot-badge">${this.SHOT_LABEL[shotType] || shotType}</span>
-        <button class="btn btn-secondary btn-sm" onclick="App.download('${dataUrl}','ugc-${shotType}-${ts}.jpg')">↓ Save</button>
+        <button class="btn btn-secondary btn-sm" onclick="App.downloadByIndex(${resultIndex})">↓ Save</button>
       </div>`;
   },
 
@@ -965,6 +966,13 @@ const App = {
     const a = document.createElement('a');
     a.href = dataUrl; a.download = filename;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  },
+
+  downloadByIndex(i) {
+    const r = this.results[i];
+    if (!r?.imgData?.data) return;
+    const dataUrl = `data:${r.imgData.mimeType};base64,${r.imgData.data}`;
+    this.download(dataUrl, `ugc-${r.shotType}-${i + 1}.jpg`);
   },
 
   async downloadAll() {
