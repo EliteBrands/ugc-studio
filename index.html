@@ -1016,23 +1016,31 @@ const App = {
 
         // Try known response shapes
         const resp = pollData.response || {};
-        const samples =
-          resp.generateVideoResponse?.generatedSamples ||  // predictLongRunning shape
-          resp.videos ||                                    // alternate shape
-          resp.generatedSamples;                            // flat shape
-        const videoEntry = samples?.[0];
+        const rawSamples =
+          resp.generateVideoResponse?.generatedSamples ||
+          resp.videos ||
+          resp.generatedSamples;
+        // [] is truthy — must check length explicitly
+        const samples = Array.isArray(rawSamples) && rawSamples.length > 0 ? rawSamples : null;
+
+        if (!samples) {
+          console.error('[UGC Studio] generatedSamples is empty or missing. Full response:', pollData);
+          throw new Error('Veo returned 0 samples — the video was likely blocked by a content policy filter. Try adjusting the prompt or shot type.');
+        }
+
+        const videoEntry = samples[0];
         const encodedVideo =
           videoEntry?.video?.encodedVideo ||
           videoEntry?.encodedVideo ||
-          videoEntry?.video?.uri;        // some responses use a URI instead
+          videoEntry?.video?.uri;
         const mimeType =
           videoEntry?.video?.mimeType ||
           videoEntry?.mimeType ||
           'video/mp4';
 
         if (!encodedVideo) {
-          console.error('[UGC Studio] Could not find video in response. Keys:', Object.keys(resp));
-          throw new Error('Veo returned no video data — check DevTools Console for full response shape');
+          console.error('[UGC Studio] Video entry found but no data/uri. Entry:', videoEntry);
+          throw new Error('Veo sample contained no video data or URI');
         }
 
         // URI response — fetch the video file from Google's servers with the API key
