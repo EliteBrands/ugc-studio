@@ -971,32 +971,49 @@ const App = {
   async callImageModel(prompt, productImg, ratio) {
     const parts = [];
 
+    // Aspect ratio instructions in the prompt (generationConfig.aspectRatio is Imagen-only)
+    const ratioDesc = {
+      '1:1':  'square format (1:1 aspect ratio)',
+      '9:16': 'vertical portrait format (9:16 aspect ratio, tall)',
+      '16:9': 'horizontal landscape format (16:9 aspect ratio, wide)'
+    }[ratio] || 'vertical portrait format (9:16 aspect ratio)';
+
+    const ratioInstruction = `Generate the image in ${ratioDesc}.`;
+
     if (productImg) {
       parts.push({ inline_data: { mime_type: productImg.mimeType, data: productImg.data } });
       parts.push({
-        text: 'The image above shows the product to feature. Generate a new realistic UGC lifestyle photo that naturally includes this exact product (same color, shape, design). Scene: ' + prompt
+        text: `The image above shows the product to feature. Generate a new realistic UGC lifestyle photo that naturally includes this exact product (same color, shape, design). ${ratioInstruction} Scene: ${prompt}`
       });
     } else {
-      parts.push({ text: 'Generate a realistic UGC lifestyle photo: ' + prompt });
+      parts.push({ text: `Generate a realistic UGC lifestyle photo. ${ratioInstruction} ${prompt}` });
     }
 
     const body = {
       contents: [{ parts }],
-      generationConfig: {
-        responseModalities: ['IMAGE', 'TEXT'],
-        ...(ratio ? { aspectRatio: ratio } : {})
-      }
+      generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
     };
 
     const data = await this._gemini(this.IMAGE_MODEL, body);
     const responseParts = data.candidates?.[0]?.content?.parts || [];
 
+    // Check for image data
     for (const p of responseParts) {
       if (p.inline_data?.data) {
         return { data: p.inline_data.data, mimeType: p.inline_data.mime_type || 'image/jpeg' };
       }
     }
-    throw new Error('No image returned — the model may not support image generation on your API key tier.');
+
+    // No image returned — surface the actual reason
+    const finishReason = data.candidates?.[0]?.finishReason || 'UNKNOWN';
+    const safetyRatings = data.candidates?.[0]?.safetyRatings;
+    const textResponse = responseParts.find(p => p.text)?.text || '';
+    const blockReason = data.promptFeedback?.blockReason;
+
+    if (blockReason) throw new Error(`Blocked by safety filter: ${blockReason}`);
+    if (finishReason === 'SAFETY') throw new Error('Image blocked by safety filters.');
+    if (textResponse) throw new Error(`Model returned text instead of image: "${textResponse.substring(0, 120)}"`);
+    throw new Error(`No image in response (finishReason: ${finishReason}). Check model name and API key permissions.`);
   },
 
   /* ─── Gemini API wrapper ─────────────────────────────────── */
