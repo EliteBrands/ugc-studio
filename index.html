@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UGC Studio — AI Lifestyle Shot Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    /* ─── TOKENS ─────────────────────────────────────────────── */
+    :root {
+      --bg:            #09090b;
+      --surface:       #18181b;
+      --card:          #1c1c1f;
+      --border:        #2d2d32;
+      --accent:        #7c3aed;
+      --accent-light:  #a78bfa;
+      --accent-dim:    rgba(124,58,237,0.12);
+      --text:          #fafafa;
+      --muted:         #71717a;
+      --success:       #22c55e;
+      --error:         #f87171;
+      --warning:       #f59e0b;
+      --radius:        12px;
+      --radius-sm:     8px;
+    }
+
+    /* ─── RESET ──────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent-light); }
+    h1,h2,h3,h4 { font-family: 'Space Grotesk', sans-serif; }
+
+    /* ─── LAYOUT ─────────────────────────────────────────────── */
+    .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+    /* ─── HEADER ─────────────────────────────────────────────── */
+    .header {
+      padding: 18px 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 40px;
+      position: sticky;
+      top: 0;
+      background: rgba(9,9,11,0.9);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+    }
+    .header-inner { display: flex; align-items: center; justify-content: space-between; }
+    .logo { display: flex; align-items: center; gap: 12px; }
+    .logo-mark {
+      width: 34px; height: 34px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-light));
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .logo-name { font-family: 'Space Grotesk', sans-serif; font-size: 17px; font-weight: 700; }
+    .logo-tag {
+      font-size: 10px; background: var(--surface); border: 1px solid var(--border);
+      padding: 2px 7px; border-radius: 4px; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Inter', sans-serif;
+    }
+    .icon-btn {
+      background: none; border: 1px solid var(--border); border-radius: var(--radius-sm);
+      padding: 8px; color: var(--muted); cursor: pointer; display: flex;
+      align-items: center; transition: all .2s;
+    }
+    .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    /* ─── STATES ─────────────────────────────────────────────── */
+    .state { display: none; }
+    .state.active { display: block; }
+
+    /* ─── CARD ───────────────────────────────────────────────── */
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 28px 32px;
+    }
+
+    /* ─── FORM ELEMENTS ──────────────────────────────────────── */
+    .field { margin-bottom: 20px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label {
+      display: block; font-size: 11px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 7px;
+    }
+    input[type="text"], input[type="url"], textarea, select {
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 11px 14px;
+      color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px;
+      outline: none; transition: border-color .2s;
+      appearance: none;
+    }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; cursor: pointer; }
+
+    /* ─── BUTTONS ────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 11px 22px; border-radius: var(--radius-sm);
+      font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 600;
+      cursor: pointer; border: none; transition: all .2s; text-decoration: none;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #6d28d9; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(124,58,237,0.3); }
+    .btn-primary:active { transform: none; }
+    .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .btn-secondary:hover { background: var(--card); }
+    .btn-ghost { background: none; color: var(--muted); border: none; padding: 8px 14px; }
+    .btn-ghost:hover { color: var(--text); }
+    .btn-sm { padding: 7px 14px; font-size: 12px; }
+    .btn-full { width: 100%; }
+    .btn:disabled { opacity: .5; pointer-events: none; }
+
+    /* ─── SHOT TYPE GRID ─────────────────────────────────────── */
+    .shot-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 8px; }
+    .shot-option { position: relative; }
+    .shot-option input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .shot-option label {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      padding: 14px 10px; background: var(--surface); border: 2px solid var(--border);
+      border-radius: var(--radius-sm); cursor: pointer; transition: all .18s;
+      text-align: center; text-transform: none; letter-spacing: 0; color: var(--text);
+    }
+    .shot-option input:checked + label {
+      border-color: var(--accent); background: var(--accent-dim);
+    }
+    .shot-option label:hover { border-color: rgba(124,58,237,.4); }
+    .shot-emoji { font-size: 22px; }
+    .shot-name { font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600; }
+    .shot-desc { font-size: 10px; color: var(--muted); line-height: 1.4; }
+
+    /* ─── OPTIONS ROW ────────────────────────────────────────── */
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+    /* ─── PRODUCT PREVIEW ────────────────────────────────────── */
+    #product-preview {
+      display: none; margin-top: 24px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      animation: slideDown .25s ease;
+    }
+    #product-preview.show { display: block; }
+    @keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+    .preview-header {
+      padding: 20px 24px; display: flex; gap: 16px; align-items: flex-start;
+      border-bottom: 1px solid var(--border);
+    }
+    .preview-thumb {
+      width: 60px; height: 60px; border-radius: 8px; object-fit: cover;
+      background: var(--card); flex-shrink: 0;
+    }
+    .preview-meta { flex: 1; min-width: 0; }
+    .preview-name { font-size: 17px; font-weight: 700; line-height: 1.3; }
+    .preview-brand { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .preview-body { padding: 16px 24px; }
+    .preview-desc { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+    .tags { display: flex; flex-wrap: wrap; gap: 7px; }
+    .tag {
+      padding: 4px 11px; background: var(--accent-dim); border: 1px solid rgba(124,58,237,.25);
+      border-radius: 20px; font-size: 11px; color: var(--accent-light); font-weight: 500;
+    }
+    .preview-footer {
+      padding: 16px 24px; border-top: 1px solid var(--border);
+      display: flex; gap: 10px; align-items: center;
+    }
+
+    /* ─── PROGRESS ───────────────────────────────────────────── */
+    .steps { display: flex; flex-direction: column; gap: 10px; }
+    .step {
+      display: flex; align-items: center; gap: 14px; padding: 14px 18px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); transition: all .2s;
+    }
+    .step.active { border-color: var(--accent); background: var(--accent-dim); }
+    .step.done { border-color: rgba(34,197,94,.3); background: rgba(34,197,94,.05); }
+    .step.error { border-color: rgba(248,113,113,.3); background: rgba(248,113,113,.05); }
+    .step-icon {
+      width: 30px; height: 30px; border-radius: 50%; display: flex;
+      align-items: center; justify-content: center; font-size: 13px;
+      background: var(--border); color: var(--muted); flex-shrink: 0;
+    }
+    .step.active .step-icon { background: var(--accent); animation: pulse 1.4s infinite; }
+    .step.done .step-icon { background: var(--success); }
+    .step.error .step-icon { background: var(--error); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
+    .step-label { font-size: 14px; font-weight: 600; }
+    .step-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* ─── RESULTS ────────────────────────────────────────────── */
+    .results-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 12px; margin-bottom: 24px;
+    }
+    .results-bar h2 { font-size: 22px; }
+    .results-bar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .gen-status {
+      display: none; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--muted);
+    }
+    .gen-status.show { display: flex; }
+    .spinner {
+      width: 16px; height: 16px; border: 2px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 18px; }
+    .img-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .img-card:hover { transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,0,0,.4); }
+    .img-card img { width: 100%; display: block; aspect-ratio: 3/4; object-fit: cover; }
+    .img-card-foot {
+      padding: 10px 14px; display: flex; align-items: center;
+      justify-content: space-between; gap: 8px;
+    }
+    .shot-badge { font-size: 11px; color: var(--muted); }
+
+    /* Skeleton */
+    .skel { width: 100%; aspect-ratio: 3/4; background: var(--surface); position: relative; overflow: hidden; }
+    .skel::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,.04) 50%, transparent 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+    }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    .skel-foot { padding: 10px 14px; }
+    .skel-line { height: 10px; background: var(--surface); border-radius: 4px; width: 60%; }
+
+    /* Error card */
+    .err-card {
+      aspect-ratio: 3/4; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 10px;
+      padding: 20px; background: var(--surface);
+    }
+
+    /* ─── ALERTS ─────────────────────────────────────────────── */
+    .alert {
+      display: none; border-radius: var(--radius-sm); padding: 11px 14px;
+      font-size: 13px; margin-top: 14px; line-height: 1.5;
+    }
+    .alert.show { display: block; }
+    .alert-error { background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.3); color: var(--error); }
+    .alert-info  { background: rgba(124,58,237,.1); border: 1px solid rgba(124,58,237,.3); color: var(--accent-light); }
+
+    /* ─── SECTION HEADER ─────────────────────────────────────── */
+    .sec-head { margin-bottom: 28px; }
+    .sec-head h2 { font-size: 26px; font-weight: 700; }
+    .sec-head p { color: var(--muted); font-size: 15px; margin-top: 6px; line-height: 1.6; }
+    .sec-head-center { text-align: center; }
+    .sec-head-center h2 { margin-bottom: 8px; }
+
+    /* ─── RESPONSIVE ─────────────────────────────────────────── */
+    @media(max-width: 640px) {
+      .shot-grid { grid-template-columns: repeat(2,1fr); }
+      .row2 { grid-template-columns: 1fr; }
+      .card { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── HEADER ──────────────────────────────────────────────── -->
+<header class="header">
+  <div class="container">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-mark">📸</div>
+        <div class="logo-name">UGC Studio</div>
+        <span class="logo-tag">Beta</span>
+      </div>
+      <button class="icon-btn" onclick="App.openSettings()" title="API Settings">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06-.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="container" style="padding-bottom: 60px;">
+
+  <!-- ═══ STATE: SETUP ════════════════════════════════════════ -->
+  <div class="state" id="state-setup">
+    <div style="max-width: 460px; margin: 0 auto; padding: 48px 0;">
+      <div class="sec-head sec-head-center">
+        <div style="font-size: 52px; margin-bottom: 18px;">✨</div>
+        <h2>Welcome to UGC Studio</h2>
+        <p>Generate authentic lifestyle &amp; UGC shots from any product URL — powered by Gemini AI.</p>
+      </div>
+      <div class="card">
+        <div class="field">
+          <label>Gemini API Key</label>
+          <input type="text" id="api-key" placeholder="AIza…" autocomplete="off" spellcheck="false"
+            onkeydown="if(event.key==='Enter') App.saveKey()">
+          <p style="margin-top: 8px; font-size: 12px; color: var(--muted);">
+            Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com</a>
+            — stored in your browser only, never sent anywhere.
+          </p>
+        </div>
+        <div id="setup-error" class="alert alert-error"></div>
+        <button class="btn btn-primary btn-full" style="margin-top: 4px;" onclick="App.saveKey()">Get Started →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ STATE: FORM ═════════════════════════════════════════ -->
+  <div class="state" id="state-form">
+    <div style="max-width: 700px; margin: 0 auto;">
+      <div class="sec-head">
+        <h2>Generate UGC Shots</h2>
+        <p>Paste a product page URL — we'll scrape the product, understand the brand &amp; audience, then generate authentic lifestyle imagery.</p>
+      </div>
+
+      <div class="card">
+        <!-- URL -->
+        <div class="field">
+          <label>Product Page URL</label>
+          <input type="url" id="product-url" placeholder="https://example.com/products/your-product"
+            onkeydown="if(event.key==='Enter') App.analyzeProduct()">
+        </div>
+
+        <!-- Shot Types -->
+        <div class="field">
+          <label>Shot Types — select all you want</label>
+          <div class="shot-grid">
+            <div class="shot-option">
+              <input type="checkbox" id="s-hold" value="hold" class="shot-cb" checked>
+              <label for="s-hold">
+                <span class="shot-emoji">🤳</span>
+                <span class="shot-name">Authentic Hold</span>
+                <span class="shot-desc">Casual real-person hold or use</span>
+              </label>
+            </div>
+            <div class="shot-option">
+              <input type="checkbox" id="s-lifestyle" value="lifestyle" class="shot-cb" checked>
+              <label for="s-lifestyle">
+                <span class="shot-emoji">🏠</span>
+                <span class="shot-name">Lifestyle Scene</span>
+                <span class="shot-desc">Product in a real environment</span>
+              </label>
+            </div>
+            <div class="shot-option">
+              <input type="checkbox" id="s-unboxing" value="unboxing" class="shot-cb">
+              <label for="s-unboxing">
+                <span class="shot-emoji">📦</span>
+                <span class="shot-name">Unboxing</span>
+                <span class="shot-desc">First discovery or opening moment</span>
+              </label>
+            </div>
+            <div class="shot-option">
+              <input type="checkbox" id="s-social" value="social" class="shot-cb">
+              <label for="s-social">
+                <span class="shot-emoji">👫</span>
+                <span class="shot-name">Social Setting</span>
+                <span class="shot-desc">Product with friends or group</span>
+              </label>
+            </div>
+            <div class="shot-option">
+              <input type="checkbox" id="s-outdoor" value="outdoor" class="shot-cb">
+              <label for="s-outdoor">
+                <span class="shot-emoji">🌿</span>
+                <span class="shot-name">Outdoor / Active</span>
+                <span class="shot-desc">On-the-go or outdoor setting</span>
+              </label>
+            </div>
+            <div class="shot-option">
+              <input type="checkbox" id="s-detail" value="detail" class="shot-cb">
+              <label for="s-detail">
+                <span class="shot-emoji">✨</span>
+                <span class="shot-name">Detail Close-Up</span>
+                <span class="shot-desc">Texture, design, or key feature</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Options row -->
+        <div class="row2 field">
+          <div>
+            <label>Creator / Model</label>
+            <select id="opt-person">
+              <option value="auto">Auto — match target audience</option>
+              <option value="woman">Woman</option>
+              <option value="man">Man</option>
+              <option value="diverse">Diverse / Mixed</option>
+            </select>
+          </div>
+          <div>
+            <label>Visual Aesthetic</label>
+            <select id="opt-aesthetic">
+              <option value="auto">Auto — match brand style</option>
+              <option value="candid">Raw &amp; Candid</option>
+              <option value="bright">Bright &amp; Airy</option>
+              <option value="moody">Moody &amp; Dark</option>
+              <option value="minimal">Clean &amp; Minimal</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Extra context -->
+        <div class="field">
+          <label>Additional Context <span style="color:var(--muted);font-weight:400;">(optional)</span></label>
+          <input type="text" id="opt-context" placeholder="e.g. summer vibes, morning routine, gym setting, New York city backdrop…">
+        </div>
+
+        <div id="form-error" class="alert alert-error"></div>
+
+        <button class="btn btn-primary" id="analyze-btn" onclick="App.analyzeProduct()" style="margin-top: 8px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Analyze Product
+        </button>
+      </div>
+
+      <!-- Product Preview (shown after analysis) -->
+      <div id="product-preview">
+        <div class="preview-header">
+          <img id="pv-img" class="preview-thumb" src="" alt="" style="display:none;" onerror="this.style.display='none'">
+          <div class="preview-meta">
+            <div class="preview-name" id="pv-name"></div>
+            <div class="preview-brand" id="pv-brand"></div>
+          </div>
+        </div>
+        <div class="preview-body">
+          <p class="preview-desc" id="pv-desc"></p>
+          <div class="tags" id="pv-tags"></div>
+        </div>
+        <div class="preview-footer">
+          <button class="btn btn-primary" id="generate-btn" onclick="App.generateImages()" style="flex:1;">
+            ✨ Generate UGC Shots
+          </button>
+          <button class="btn btn-secondary" onclick="App.resetAnalysis()">Re-analyze</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ STATE: PROGRESS ═════════════════════════════════════ -->
+  <div class="state" id="state-progress">
+    <div style="max-width: 520px; margin: 0 auto; padding: 48px 0;">
+      <div class="sec-head sec-head-center">
+        <h2>Generating Your UGC Shots</h2>
+        <p>Hang tight — this typically takes 30–90 seconds per image</p>
+      </div>
+
+      <div class="steps">
+        <div class="step pending" id="stp-scrape">
+          <div class="step-icon">🔍</div>
+          <div>
+            <div class="step-label">Analyzing Product Page</div>
+            <div class="step-sub" id="stp-scrape-sub">Extracting brand, product info &amp; audience</div>
+          </div>
+        </div>
+        <div class="step pending" id="stp-image">
+          <div class="step-icon">🖼️</div>
+          <div>
+            <div class="step-label">Fetching Product Image</div>
+            <div class="step-sub">Loading product image as visual reference for AI</div>
+          </div>
+        </div>
+        <div class="step pending" id="stp-prompts">
+          <div class="step-icon">✍️</div>
+          <div>
+            <div class="step-label">Crafting UGC Prompts</div>
+            <div class="step-sub">Writing authentic shot descriptions for each scene</div>
+          </div>
+        </div>
+        <div class="step pending" id="stp-gen">
+          <div class="step-icon">🎨</div>
+          <div>
+            <div class="step-label">Generating Lifestyle Images</div>
+            <div class="step-sub" id="stp-gen-sub">Starting image generation…</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="progress-error" class="alert alert-error" style="margin-top: 18px;"></div>
+      <button class="btn btn-ghost btn-full" style="margin-top: 20px;" id="cancel-btn"
+        onclick="App.showState('form')">← Cancel</button>
+    </div>
+  </div>
+
+  <!-- ═══ STATE: RESULTS ══════════════════════════════════════ -->
+  <div class="state" id="state-results">
+    <div style="padding: 32px 0;">
+      <div class="results-bar">
+        <div>
+          <h2>Your UGC Shots</h2>
+          <p style="font-size: 13px; color: var(--muted); margin-top: 4px;" id="result-count">0 images generated</p>
+        </div>
+        <div class="results-bar-right">
+          <div class="gen-status" id="gen-status">
+            <div class="spinner"></div>
+            <span id="gen-status-text">Generating…</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="App.showState('form')">← New Product</button>
+          <button class="btn btn-primary btn-sm" id="dl-all-btn" style="display:none;" onclick="App.downloadAll()">
+            ↓ Download All (ZIP)
+          </button>
+        </div>
+      </div>
+      <div class="img-grid" id="img-grid"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ─── SCRIPT ──────────────────────────────────────────────── -->
+<script>
+const App = {
+
+  /* ─── Config ─────────────────────────────────────────────── */
+  // NOTE: If image generation fails with a model-not-found error,
+  // update IMAGE_MODEL to the current Gemini image generation model.
+  // Check: https://ai.google.dev/gemini-api/docs/image-generation
+  TEXT_MODEL:  'gemini-2.0-flash',
+  IMAGE_MODEL: 'gemini-2.0-flash-preview-image-generation',
+  API:         'https://generativelanguage.googleapis.com/v1beta/models',
+  STORE_KEY:   'ugc_studio_api_key',
+
+  SHOT_DESC: {
+    hold:      'Person casually holding or using the product in a natural, candid moment at home or on the go',
+    lifestyle: 'Product naturally integrated into a realistic home, café, or daily-life environment',
+    unboxing:  'The moment of opening, unwrapping, or discovering the product for the first time',
+    social:    'Person enjoying or sharing the product in a social gathering with friends or family',
+    outdoor:   'Person actively using the product outdoors — walking, hiking, gym, park or city street',
+    detail:    'Close-up highlighting the product\'s texture, color, logo, design, or key feature'
+  },
+
+  SHOT_LABEL: {
+    hold: '🤳 Authentic Hold', lifestyle: '🏠 Lifestyle',
+    unboxing: '📦 Unboxing', social: '👫 Social',
+    outdoor: '🌿 Outdoor', detail: '✨ Detail'
+  },
+
+  /* ─── State ──────────────────────────────────────────────── */
+  apiKey:      '',
+  productData: null,
+  productImg:  null,   // { data: base64, mimeType }
+  results:     [],
+  opts:        {},
+
+  /* ─── Boot ───────────────────────────────────────────────── */
+  init() {
+    this.apiKey = localStorage.getItem(this.STORE_KEY) || '';
+    this.showState(this.apiKey ? 'form' : 'setup');
+  },
+
+  showState(name) {
+    document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
+    document.getElementById('state-' + name).classList.add('active');
+  },
+
+  /* ─── API Key ────────────────────────────────────────────── */
+  saveKey() {
+    const k = document.getElementById('api-key').value.trim();
+    if (!k.startsWith('AIza') || k.length < 30) {
+      this.alert('setup-error', 'Invalid key — should start with "AIza" and be at least 30 characters.');
+      return;
+    }
+    this.apiKey = k;
+    localStorage.setItem(this.STORE_KEY, k);
+    this.hideAlert('setup-error');
+    this.showState('form');
+  },
+
+  openSettings() {
+    const k = prompt('Enter your Gemini API key (leave blank to cancel):');
+    if (!k) return;
+    if (!k.startsWith('AIza') || k.length < 30) { alert('Invalid key format.'); return; }
+    this.apiKey = k;
+    localStorage.setItem(this.STORE_KEY, k);
+  },
+
+  /* ─── Alert helpers ──────────────────────────────────────── */
+  alert(id, msg) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+  },
+  hideAlert(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('show');
+  },
+
+  /* ─── Form — Analyze ─────────────────────────────────────── */
+  async analyzeProduct() {
+    const url = document.getElementById('product-url').value.trim();
+    if (!url.startsWith('http')) {
+      this.alert('form-error', 'Please enter a valid URL starting with https://');
+      return;
+    }
+    const shots = [...document.querySelectorAll('.shot-cb:checked')].map(c => c.value);
+    if (!shots.length) {
+      this.alert('form-error', 'Select at least one shot type.');
+      return;
+    }
+    this.hideAlert('form-error');
+
+    const btn = document.getElementById('analyze-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;"></div> Analyzing…';
+
+    try {
+      this.productData = await this.scrapeProduct(url);
+      this.showPreview(this.productData);
+
+      // Pre-fetch product image in background (non-blocking)
+      if (this.productData.primaryImageUrl) {
+        this.fetchProductImage(this.productData.primaryImageUrl)
+          .then(img => { this.productImg = img; })
+          .catch(() => {});
+      }
+    } catch (err) {
+      this.alert('form-error', 'Analysis failed: ' + err.message + '. Check the URL and your API key.');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Analyze Product';
+    }
+  },
+
+  showPreview(d) {
+    document.getElementById('pv-name').textContent  = d.productName  || 'Product';
+    document.getElementById('pv-brand').textContent = d.brandName ? 'by ' + d.brandName : '';
+    document.getElementById('pv-desc').textContent  = d.description  || '';
+
+    if (d.primaryImageUrl) {
+      const img = document.getElementById('pv-img');
+      img.src = d.primaryImageUrl;
+      img.style.display = 'block';
+    }
+
+    const tagsEl = document.getElementById('pv-tags');
+    tagsEl.innerHTML = '';
+    const tags = [
+      d.productCategory, d.brandAesthetic, d.pricePoint,
+      d.targetDemographic?.gender, d.targetDemographic?.ageRange,
+      ...(d.keyBenefits || []).slice(0, 3)
+    ].filter(Boolean);
+    tags.forEach(t => {
+      const span = document.createElement('span');
+      span.className = 'tag'; span.textContent = t;
+      tagsEl.appendChild(span);
+    });
+
+    document.getElementById('product-preview').classList.add('show');
+  },
+
+  resetAnalysis() {
+    document.getElementById('product-preview').classList.remove('show');
+    this.productData = null;
+    this.productImg  = null;
+  },
+
+  /* ─── Main generation flow ───────────────────────────────── */
+  async generateImages() {
+    this.opts = {
+      shots:     [...document.querySelectorAll('.shot-cb:checked')].map(c => c.value),
+      person:    document.getElementById('opt-person').value,
+      aesthetic: document.getElementById('opt-aesthetic').value,
+      context:   document.getElementById('opt-context').value.trim()
+    };
+
+    this.showState('progress');
+    this.results = [];
+    ['stp-scrape','stp-image','stp-prompts','stp-gen'].forEach(id => {
+      this.setStep(id, 'pending');
+    });
+
+    try {
+      // Step 1 — already done during Analyze
+      this.setStep('stp-scrape', 'done');
+      document.getElementById('stp-scrape-sub').textContent =
+        'Found: ' + this.productData.productName + ' by ' + (this.productData.brandName || '?');
+
+      // Step 2 — product image
+      this.setStep('stp-image', 'active');
+      if (!this.productImg && this.productData?.primaryImageUrl) {
+        try {
+          this.productImg = await this.fetchProductImage(this.productData.primaryImageUrl);
+          this.setStep('stp-image', 'done');
+        } catch {
+          this.setStep('stp-image', 'error');
+        }
+      } else {
+        this.setStep('stp-image', this.productImg ? 'done' : 'done'); // non-fatal either way
+      }
+
+      // Step 3 — prompts
+      this.setStep('stp-prompts', 'active');
+      const prompts = await this.buildPrompts(this.productData, this.opts);
+      this.setStep('stp-prompts', 'done');
+
+      // Step 4 — images (switch to results and generate in place)
+      this.setStep('stp-gen', 'active');
+      this.showState('results');
+
+      const grid = document.getElementById('img-grid');
+      grid.innerHTML = '';
+      document.getElementById('gen-status').classList.add('show');
+      document.getElementById('dl-all-btn').style.display = 'none';
+
+      // Insert skeletons
+      for (let i = 0; i < prompts.length; i++) {
+        const card = document.createElement('div');
+        card.className = 'img-card'; card.id = 'skel-' + i;
+        card.innerHTML = '<div class="skel"></div><div class="skel-foot"><div class="skel-line"></div></div>';
+        grid.appendChild(card);
+      }
+
+      // Generate each
+      for (let i = 0; i < prompts.length; i++) {
+        document.getElementById('gen-status-text').textContent =
+          'Generating ' + (i+1) + ' of ' + prompts.length + '…';
+        const type = this.opts.shots[i] || 'lifestyle';
+        try {
+          const imgData = await this.callImageModel(prompts[i], this.productImg);
+          this.fillCard(i, imgData, type);
+          this.results.push({ imgData, shotType: type });
+          this.updateCount();
+        } catch (err) {
+          this.fillCardError(i, type, err.message);
+        }
+      }
+
+      document.getElementById('gen-status').classList.remove('show');
+      if (this.results.length > 0) document.getElementById('dl-all-btn').style.display = '';
+
+    } catch (err) {
+      this.alert('progress-error', 'Generation failed: ' + err.message);
+      document.getElementById('cancel-btn').textContent = '← Back to Form';
+    }
+  },
+
+  /* ─── Step helper ────────────────────────────────────────── */
+  setStep(id, status) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'step ' + status;
+    const icon = el.querySelector('.step-icon');
+    if (!icon) return;
+    const icons = { active: '⏳', done: '✅', error: '❌', pending: '' };
+    if (icons[status]) icon.textContent = icons[status];
+  },
+
+  /* ─── Scrape Product ─────────────────────────────────────── */
+  async scrapeProduct(url) {
+    // Primary: Gemini URL context (fetches page server-side, bypasses CORS/bot protection)
+    try {
+      return await this._scrapeUrlContext(url);
+    } catch (e) {
+      console.warn('URL context failed, trying CORS fallback:', e.message);
+    }
+
+    // Fallback: fetch HTML via CORS proxies, send text to Gemini
+    const html = await this._fetchHtmlProxy(url);
+    const text  = this._extractPageText(html);
+    return await this._scrapeFromText(text, url);
+  },
+
+  async _scrapeUrlContext(url) {
+    const body = {
+      tools: [{ url_context: {} }],
+      contents: [{ parts: [{ text: SCRAPE_PROMPT(url) }] }],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 1200 }
+    };
+    const data = await this._gemini(this.TEXT_MODEL, body);
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return this._parseJson(text);
+  },
+
+  async _fetchHtmlProxy(url) {
+    const proxies = [
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+      `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+    ];
+    for (const p of proxies) {
+      try {
+        const res = await fetch(p);
+        if (res.ok) return await res.text();
+      } catch {}
+    }
+    throw new Error('Could not fetch product page — check the URL and try again.');
+  },
+
+  _extractPageText(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const metas = [...doc.querySelectorAll('meta[name],meta[property]')]
+      .map(m => (m.getAttribute('name') || m.getAttribute('property')) + ': ' + m.getAttribute('content'))
+      .join('\n');
+    const body = [...doc.querySelectorAll('h1,h2,h3,p,li,[class*="product"],[class*="title"],[class*="desc"]')]
+      .map(el => el.textContent.trim()).filter(t => t.length > 5).slice(0, 120).join('\n');
+    return ('Title: ' + doc.title + '\n\nMeta:\n' + metas + '\n\nContent:\n' + body).substring(0, 22000);
+  },
+
+  async _scrapeFromText(text, url) {
+    const body = {
+      contents: [{ parts: [{ text: SCRAPE_PROMPT_TEXT(url, text) }] }],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 1200 }
+    };
+    const data = await this._gemini(this.TEXT_MODEL, body);
+    const resp = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return this._parseJson(resp);
+  },
+
+  _parseJson(text) {
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error('Could not extract product data — the page may be too complex or behind a login.');
+    try { return JSON.parse(m[0]); }
+    catch { throw new Error('Failed to parse product data JSON.'); }
+  },
+
+  /* ─── Fetch product image ────────────────────────────────── */
+  async fetchProductImage(imgUrl) {
+    if (!imgUrl || imgUrl === 'null') return null;
+    const attempts = [
+      () => fetch(imgUrl),
+      () => fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(imgUrl)}`),
+      () => fetch(`https://corsproxy.io/?${encodeURIComponent(imgUrl)}`)
+    ];
+    for (const attempt of attempts) {
+      try {
+        const res = await attempt();
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        if (!blob.type.startsWith('image/')) continue;
+        return await this._blobToBase64(blob);
+      } catch {}
+    }
+    return null;
+  },
+
+  _blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve({ data: r.result.split(',')[1], mimeType: blob.type || 'image/jpeg' });
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  },
+
+  /* ─── Build prompts ──────────────────────────────────────── */
+  async buildPrompts(d, opts) {
+    const personDesc = {
+      auto:    'a person matching the target demographic (' + (d.targetDemographic?.gender || 'any gender') + ', ' + (d.targetDemographic?.ageRange || 'adult') + ')',
+      woman:   'a woman',
+      man:     'a man',
+      diverse: 'diverse individuals (vary ethnicity/gender across shots)'
+    }[opts.person] || 'a person';
+
+    const aestheticDesc = {
+      auto:    'matching the brand aesthetic: ' + (d.brandAesthetic || 'natural and authentic'),
+      candid:  'raw and candid, slightly imperfect, documentary-style',
+      bright:  'bright, airy, warm and welcoming, golden hour tones',
+      moody:   'moody, high-contrast, atmospheric and dramatic',
+      minimal: 'clean, minimal, lots of negative space, Scandinavian feel'
+    }[opts.aesthetic] || 'authentic';
+
+    const shotList = opts.shots
+      .map((s, i) => `${i+1}. ${s.toUpperCase()}: ${this.SHOT_DESC[s] || s}`)
+      .join('\n');
+
+    const body = {
+      contents: [{ parts: [{ text: PROMPT_BUILDER(d, personDesc, aestheticDesc, shotList, opts) }] }],
+      generationConfig: { temperature: 0.85, maxOutputTokens: 2500 }
+    };
+
+    const data = await this._gemini(this.TEXT_MODEL, body);
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const m = text.match(/\[[\s\S]*\]/);
+    if (!m) throw new Error('Could not generate image prompts — try again.');
+    const arr = JSON.parse(m[0]);
+    if (!Array.isArray(arr)) throw new Error('Prompt output was not an array.');
+    return arr;
+  },
+
+  /* ─── Image generation ───────────────────────────────────── */
+  async callImageModel(prompt, productImg) {
+    const parts = [];
+
+    if (productImg) {
+      parts.push({ inline_data: { mime_type: productImg.mimeType, data: productImg.data } });
+      parts.push({
+        text: 'The image above shows the product to feature. Generate a new realistic UGC lifestyle photo that naturally includes this exact product (same color, shape, design). Scene: ' + prompt
+      });
+    } else {
+      parts.push({ text: 'Generate a realistic UGC lifestyle photo: ' + prompt });
+    }
+
+    const body = {
+      contents: [{ parts }],
+      generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+    };
+
+    const data = await this._gemini(this.IMAGE_MODEL, body);
+    const responseParts = data.candidates?.[0]?.content?.parts || [];
+
+    for (const p of responseParts) {
+      if (p.inline_data?.data) {
+        return { data: p.inline_data.data, mimeType: p.inline_data.mime_type || 'image/jpeg' };
+      }
+    }
+    throw new Error('No image returned — the model may not support image generation on your API key tier.');
+  },
+
+  /* ─── Gemini API wrapper ─────────────────────────────────── */
+  async _gemini(model, body) {
+    const res = await fetch(`${this.API}/${model}:generateContent?key=${this.apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `API error ${res.status}`);
+    }
+    return res.json();
+  },
+
+  /* ─── Results cards ──────────────────────────────────────── */
+  fillCard(index, imgData, shotType) {
+    const skel = document.getElementById('skel-' + index);
+    if (!skel) return;
+    const dataUrl = `data:${imgData.mimeType};base64,${imgData.data}`;
+    const ts = Date.now();
+    skel.innerHTML = `
+      <img src="${dataUrl}" alt="${this.SHOT_LABEL[shotType] || shotType}" loading="lazy">
+      <div class="img-card-foot">
+        <span class="shot-badge">${this.SHOT_LABEL[shotType] || shotType}</span>
+        <button class="btn btn-secondary btn-sm" onclick="App.download('${dataUrl}','ugc-${shotType}-${ts}.jpg')">↓ Save</button>
+      </div>`;
+  },
+
+  fillCardError(index, shotType, msg) {
+    const skel = document.getElementById('skel-' + index);
+    if (!skel) return;
+    skel.innerHTML = `
+      <div class="err-card">
+        <span style="font-size:28px;">⚠️</span>
+        <p style="font-size:12px;color:var(--muted);text-align:center;max-width:200px;">${msg}</p>
+      </div>
+      <div class="img-card-foot"><span class="shot-badge">${this.SHOT_LABEL[shotType] || shotType}</span></div>`;
+  },
+
+  updateCount() {
+    const n = this.results.length;
+    document.getElementById('result-count').textContent = n + ' image' + (n !== 1 ? 's' : '') + ' generated';
+  },
+
+  /* ─── Download ───────────────────────────────────────────── */
+  download(dataUrl, filename) {
+    const a = document.createElement('a');
+    a.href = dataUrl; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  },
+
+  async downloadAll() {
+    if (!this.results.length) return;
+    const JSZip = await this._loadScript('https://cdn.jsdelivr.net/npm/jszip@3/dist/jszip.min.js', 'JSZip');
+    if (!JSZip) { alert('Could not load ZIP library. Download images individually.'); return; }
+
+    const zip = new JSZip();
+    const folder = zip.folder('ugc-studio-shots');
+    this.results.forEach((r, i) => {
+      if (r.imgData?.data)
+        folder.file(`ugc-${r.shotType}-${i+1}.jpg`, r.imgData.data, { base64: true });
+    });
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url  = URL.createObjectURL(blob);
+    this.download(url, `ugc-studio-${Date.now()}.zip`);
+    URL.revokeObjectURL(url);
+  },
+
+  _loadScript(src, globalName) {
+    return new Promise(resolve => {
+      if (window[globalName]) { resolve(window[globalName]); return; }
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload  = () => resolve(window[globalName]);
+      s.onerror = () => resolve(null);
+      document.head.appendChild(s);
+    });
+  }
+
+};
+
+/* ─── Prompt Templates ───────────────────────────────────────── */
+
+function SCRAPE_PROMPT(url) {
+  return `Visit and analyze this product page URL. Return ONLY valid JSON (no markdown, no code fences) with this exact structure:
+
+{
+  "productName": "complete product name",
+  "brandName": "brand or company name",
+  "tagline": "brand tagline if visible, or null",
+  "description": "product description in 2-3 sentences",
+  "targetDemographic": {
+    "gender": "male / female / all",
+    "ageRange": "e.g. 25-40",
+    "lifestyle": "lifestyle descriptor, 5-8 words",
+    "psychographic": "values and interests in one sentence"
+  },
+  "keyBenefits": ["benefit 1", "benefit 2", "benefit 3"],
+  "useCases": ["use case 1", "use case 2"],
+  "productCategory": "e.g. skincare, fitness equipment, food & beverage",
+  "brandAesthetic": "e.g. minimalist luxury, natural & organic, bold & energetic",
+  "primaryImageUrl": "full direct URL to the main product image (must end in .jpg .png .webp etc) or null",
+  "productColor": "primary color(s) of the product",
+  "productMaterial": "primary material if relevant, or null",
+  "productSize": "size/weight descriptor if relevant, or null",
+  "pricePoint": "budget / mid-range / premium / luxury"
+}
+
+URL: ${url}`;
+}
+
+function SCRAPE_PROMPT_TEXT(url, pageText) {
+  return `Analyze this product page content and extract information. Return ONLY valid JSON (no markdown) with this structure:
+
+{
+  "productName": "complete product name",
+  "brandName": "brand or company name",
+  "tagline": "brand tagline or null",
+  "description": "product description in 2-3 sentences",
+  "targetDemographic": {
+    "gender": "male / female / all",
+    "ageRange": "e.g. 25-40",
+    "lifestyle": "lifestyle descriptor 5-8 words",
+    "psychographic": "values and interests"
+  },
+  "keyBenefits": ["benefit 1", "benefit 2", "benefit 3"],
+  "useCases": ["use case 1", "use case 2"],
+  "productCategory": "category",
+  "brandAesthetic": "aesthetic style",
+  "primaryImageUrl": null,
+  "productColor": "color",
+  "productMaterial": null,
+  "productSize": null,
+  "pricePoint": "budget / mid-range / premium / luxury"
+}
+
+Page URL: ${url}
+
+Page content:
+${pageText}`;
+}
+
+function PROMPT_BUILDER(d, personDesc, aestheticDesc, shotList, opts) {
+  return `You are an expert UGC content director at a top creative agency. Create hyper-realistic image generation prompts for authentic user-generated content lifestyle photography.
+
+PRODUCT BRIEF:
+- Product: ${d.productName}
+- Brand: ${d.brandName || 'Unknown'}
+- Description: ${d.description}
+- Category: ${d.productCategory}
+- Target audience: ${d.targetDemographic?.lifestyle || 'general'} (${d.targetDemographic?.gender}, ${d.targetDemographic?.ageRange})
+- Brand aesthetic: ${d.brandAesthetic}
+- Product appearance: ${d.productColor} ${d.productMaterial || ''} ${d.productSize || ''}
+- Price point: ${d.pricePoint || 'mid-range'}
+- Key benefits: ${(d.keyBenefits || []).join(', ')}
+${opts.context ? '- Extra context: ' + opts.context : ''}
+
+GENERATION SETTINGS:
+- Creator/model: ${personDesc}
+- Visual aesthetic: ${aestheticDesc}
+
+SHOTS TO CREATE:
+${shotList}
+
+PROMPT REQUIREMENTS — each prompt must:
+1. Feature ${personDesc} naturally interacting with the ${d.productColor} ${d.productName}
+2. Describe a realistic non-professional phone photo (NOT a studio shoot)
+3. Include specific details: exact location, time of day, natural lighting conditions
+4. Describe the person naturally (relaxed posture, genuine expression, relatable appearance)
+5. Reference the product accurately: color, how it's held/positioned/used
+6. Capture an authentic, slightly imperfect quality — like a real person actually posted it
+7. Be 90-130 words long
+8. End every prompt with: ", authentic UGC content, shot on iPhone, natural available light, no professional lighting or studio setup"
+
+Return ONLY a JSON array of ${opts.shots.length} prompt strings. No other text.
+["prompt 1", "prompt 2", ...]`;
+}
+
+/* ─── Boot ──────────────────────────────────────────────────── */
+App.init();
+</script>
+</body>
+</html>
