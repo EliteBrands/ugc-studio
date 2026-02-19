@@ -172,6 +172,22 @@
     .shot-name { font-family: 'Space Grotesk', sans-serif; font-size: 12px; font-weight: 600; }
     .shot-desc { font-size: 10px; color: var(--muted); line-height: 1.4; }
 
+    /* ─── ASPECT RATIO TOGGLE ────────────────────────────────── */
+    .ratio-toggle {
+      display: flex; background: var(--surface);
+      border: 1px solid var(--border-form); border-radius: var(--radius-sm);
+      overflow: hidden; width: fit-content;
+    }
+    .ratio-btn {
+      padding: 9px 22px; background: none; border: none; border-right: 1px solid var(--border-form);
+      color: var(--muted); font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s;
+      line-height: 1;
+    }
+    .ratio-btn:last-child { border-right: none; }
+    .ratio-btn.active { background: var(--cyan); color: var(--ink); }
+    .ratio-btn:hover:not(.active) { color: var(--text); background: var(--cyan-dim); }
+
     /* ─── OPTIONS ROW ────────────────────────────────────────── */
     .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
@@ -431,6 +447,16 @@
           </div>
         </div>
 
+        <!-- Aspect Ratio -->
+        <div class="field">
+          <label>Aspect Ratio</label>
+          <div class="ratio-toggle">
+            <button type="button" class="ratio-btn" data-ratio="1:1" onclick="App.setRatio(this)">1 : 1</button>
+            <button type="button" class="ratio-btn active" data-ratio="9:16" onclick="App.setRatio(this)">9 : 16</button>
+            <button type="button" class="ratio-btn" data-ratio="16:9" onclick="App.setRatio(this)">16 : 9</button>
+          </div>
+        </div>
+
         <!-- Options row -->
         <div class="row2 field">
           <div>
@@ -590,11 +616,12 @@ const App = {
   },
 
   /* ─── State ──────────────────────────────────────────────── */
-  apiKey:      '',
-  productData: null,
-  productImg:  null,   // { data: base64, mimeType }
-  results:     [],
-  opts:        {},
+  apiKey:        '',
+  productData:   null,
+  productImg:    null,   // { data: base64, mimeType }
+  results:       [],
+  opts:          {},
+  selectedRatio: '9:16',
 
   /* ─── Boot ───────────────────────────────────────────────── */
   init() {
@@ -709,13 +736,20 @@ const App = {
     this.productImg  = null;
   },
 
+  setRatio(btn) {
+    document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    this.selectedRatio = btn.dataset.ratio;
+  },
+
   /* ─── Main generation flow ───────────────────────────────── */
   async generateImages() {
     this.opts = {
       shots:     [...document.querySelectorAll('.shot-cb:checked')].map(c => c.value),
       person:    document.getElementById('opt-person').value,
       aesthetic: document.getElementById('opt-aesthetic').value,
-      context:   document.getElementById('opt-context').value.trim()
+      context:   document.getElementById('opt-context').value.trim(),
+      ratio:     this.selectedRatio
     };
 
     this.showState('progress');
@@ -758,10 +792,11 @@ const App = {
       document.getElementById('dl-all-btn').style.display = 'none';
 
       // Insert skeletons
+      const cssRatio = this.opts.ratio.replace(':', '/');
       for (let i = 0; i < prompts.length; i++) {
         const card = document.createElement('div');
         card.className = 'img-card'; card.id = 'skel-' + i;
-        card.innerHTML = '<div class="skel"></div><div class="skel-foot"><div class="skel-line"></div></div>';
+        card.innerHTML = `<div class="skel" style="aspect-ratio:${cssRatio}"></div><div class="skel-foot"><div class="skel-line"></div></div>`;
         grid.appendChild(card);
       }
 
@@ -771,7 +806,7 @@ const App = {
           'Generating ' + (i+1) + ' of ' + prompts.length + '…';
         const type = this.opts.shots[i] || 'lifestyle';
         try {
-          const imgData = await this.callImageModel(prompts[i], this.productImg);
+          const imgData = await this.callImageModel(prompts[i], this.productImg, this.opts.ratio);
           this.results.push({ imgData, shotType: type }); // push BEFORE fillCard so index is correct
           this.fillCard(i, imgData, type);
           this.updateCount();
@@ -933,7 +968,7 @@ const App = {
   },
 
   /* ─── Image generation ───────────────────────────────────── */
-  async callImageModel(prompt, productImg) {
+  async callImageModel(prompt, productImg, ratio) {
     const parts = [];
 
     if (productImg) {
@@ -947,7 +982,10 @@ const App = {
 
     const body = {
       contents: [{ parts }],
-      generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+      generationConfig: {
+        responseModalities: ['IMAGE', 'TEXT'],
+        ...(ratio ? { aspectRatio: ratio } : {})
+      }
     };
 
     const data = await this._gemini(this.IMAGE_MODEL, body);
@@ -982,8 +1020,9 @@ const App = {
     const dataUrl = `data:${imgData.mimeType};base64,${imgData.data}`;
     // Store result so download can look up by index (avoids embedding huge base64 in onclick attr)
     const resultIndex = this.results.length - 1;
+    const cssRatio = (this.opts.ratio || '9:16').replace(':', '/');
     skel.innerHTML = `
-      <img src="${dataUrl}" alt="${this.SHOT_LABEL[shotType] || shotType}" loading="lazy">
+      <img src="${dataUrl}" alt="${this.SHOT_LABEL[shotType] || shotType}" loading="lazy" style="aspect-ratio:${cssRatio}">
       <div class="img-card-foot">
         <span class="shot-badge">${this.SHOT_LABEL[shotType] || shotType}</span>
         <button class="btn btn-secondary btn-sm" onclick="App.downloadByIndex(${resultIndex})">↓ Save</button>
