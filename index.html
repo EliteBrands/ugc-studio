@@ -1034,6 +1034,17 @@ const App = {
           console.error('[UGC Studio] Could not find video in response. Keys:', Object.keys(resp));
           throw new Error('Veo returned no video data — check DevTools Console for full response shape');
         }
+
+        // URI response — fetch the video file from Google's servers with the API key
+        if (encodedVideo.startsWith('http')) {
+          const sep = encodedVideo.includes('?') ? '&' : '?';
+          const videoRes = await fetch(`${encodedVideo}${sep}key=${this.apiKey}`);
+          if (!videoRes.ok) throw new Error(`Failed to download Veo video file: ${videoRes.status}`);
+          const blob = await videoRes.blob();
+          const b64 = await this._blobToBase64(blob);
+          return { data: b64.data, mimeType: b64.mimeType || 'video/mp4' };
+        }
+
         return { data: encodedVideo, mimeType };
       }
 
