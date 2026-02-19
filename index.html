@@ -1011,11 +1011,29 @@ const App = {
       const pollData = await pollRes.json();
 
       if (pollData.done) {
+        console.log('[UGC Studio] Veo operation complete. Full response:', JSON.stringify(pollData, null, 2));
         if (pollData.error) throw new Error(pollData.error.message || 'Veo operation failed');
-        const samples = pollData.response?.generateVideoResponse?.generatedSamples;
-        const encodedVideo = samples?.[0]?.video?.encodedVideo;
-        const mimeType = samples?.[0]?.video?.mimeType || 'video/mp4';
-        if (!encodedVideo) throw new Error('Veo returned no video data in response');
+
+        // Try known response shapes
+        const resp = pollData.response || {};
+        const samples =
+          resp.generateVideoResponse?.generatedSamples ||  // predictLongRunning shape
+          resp.videos ||                                    // alternate shape
+          resp.generatedSamples;                            // flat shape
+        const videoEntry = samples?.[0];
+        const encodedVideo =
+          videoEntry?.video?.encodedVideo ||
+          videoEntry?.encodedVideo ||
+          videoEntry?.video?.uri;        // some responses use a URI instead
+        const mimeType =
+          videoEntry?.video?.mimeType ||
+          videoEntry?.mimeType ||
+          'video/mp4';
+
+        if (!encodedVideo) {
+          console.error('[UGC Studio] Could not find video in response. Keys:', Object.keys(resp));
+          throw new Error('Veo returned no video data — check DevTools Console for full response shape');
+        }
         return { data: encodedVideo, mimeType };
       }
 
