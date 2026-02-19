@@ -878,8 +878,13 @@ const App = {
     this.showState('progress');
     this.results = [];
     ['stp-scrape','stp-image','stp-prompts','stp-gen'].forEach(id => this.setStep(id, 'pending'));
+    // Update all static text for video mode
     document.querySelector('#state-progress h2').textContent = 'Generating Your UGC Videos';
-    document.querySelector('#state-progress p').textContent = 'Hang tight — each video takes ~1-2 minutes to generate';
+    document.querySelector('#state-progress p').textContent = 'Hang tight — each video takes ~1–2 minutes to generate';
+    document.getElementById('stp-gen').querySelector('.step-label').textContent = 'Generating Lifestyle Videos';
+    document.getElementById('stp-gen-sub').textContent = 'Starting video generation…';
+    document.querySelector('#state-results h2').textContent = 'Your UGC Videos';
+    document.getElementById('result-count').textContent = '0 videos generated';
 
     try {
       // Step 1 — product analysis (reuse cached if available)
@@ -945,15 +950,22 @@ const App = {
 
       document.getElementById('gen-status').classList.remove('show');
       if (this.results.length > 0) document.getElementById('dl-all-btn').style.display = '';
-      document.querySelector('#state-progress h2').textContent = 'Generating Your UGC Shots';
-      document.querySelector('#state-progress p').textContent = 'Hang tight — this typically takes 30–90 seconds per image';
+      this._resetProgressText();
 
     } catch (err) {
       this.alert('progress-error', 'Generation failed: ' + err.message);
       document.getElementById('cancel-btn').textContent = '← Back to Form';
-      document.querySelector('#state-progress h2').textContent = 'Generating Your UGC Shots';
-      document.querySelector('#state-progress p').textContent = 'Hang tight — this typically takes 30–90 seconds per image';
+      this._resetProgressText();
     }
+  },
+
+  _resetProgressText() {
+    document.querySelector('#state-progress h2').textContent = 'Generating Your UGC Shots';
+    document.querySelector('#state-progress p').textContent = 'Hang tight — this typically takes 30–90 seconds per image';
+    document.getElementById('stp-gen').querySelector('.step-label').textContent = 'Generating Lifestyle Images';
+    document.getElementById('stp-gen-sub').textContent = 'Starting image generation…';
+    document.querySelector('#state-results h2').textContent = 'Your UGC Shots';
+    document.getElementById('result-count').textContent = '0 images generated';
   },
 
   /* ─── Veo API call (image-to-video) ──────────────────────── */
@@ -973,7 +985,7 @@ const App = {
       instances: [instance],
       parameters: {
         aspectRatio,
-        durationSeconds: 5,
+        durationSeconds: 8,
         enhancePrompt: false,
         generateAudio
       }
