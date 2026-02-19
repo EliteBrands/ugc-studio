@@ -963,7 +963,10 @@ const App = {
 
     const instance = { prompt };
     if (firstFrame) {
-      instance.image = { bytesBase64Encoded: firstFrame.data };
+      instance.image = {
+        bytesBase64Encoded: firstFrame.data,
+        mimeType: firstFrame.mimeType || 'image/jpeg'
+      };
     }
 
     const body = {
