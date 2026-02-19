@@ -602,11 +602,11 @@ const App = {
 
   SHOT_DESC: {
     hold:      'Person casually holding or using the product in a natural, candid moment at home or on the go',
-    lifestyle: 'Product naturally integrated into a realistic home, café, or daily-life environment',
+    lifestyle: 'Product placed alone in a beautifully styled real-world setting — NO people, NO hands. Product sits on a kitchen counter, wooden shelf, coffee table, bathroom ledge, or outdoor surface. Ambient lifestyle context with soft natural light, product is the sole hero.',
     unboxing:  'The moment of opening, unwrapping, or discovering the product for the first time',
     social:    'Person enjoying or sharing the product in a social gathering with friends or family',
     outdoor:   'Person actively using the product outdoors — walking, hiking, gym, park or city street',
-    detail:    'Close-up highlighting the product\'s texture, color, logo, design, or key feature'
+    detail:    'Extreme close-up highlighting the product\'s texture, color, logo, or key feature — NO people, product only'
   },
 
   SHOT_LABEL: {
@@ -744,8 +744,10 @@ const App = {
 
   /* ─── Main generation flow ───────────────────────────────── */
   async generateImages() {
+    const selectedShots = [...document.querySelectorAll('.shot-cb:checked')].map(c => c.value);
+    // 2x output per shot type — duplicate the list so each type generates two distinct images
     this.opts = {
-      shots:     [...document.querySelectorAll('.shot-cb:checked')].map(c => c.value),
+      shots:     [...selectedShots, ...selectedShots],
       person:    document.getElementById('opt-person').value,
       aesthetic: document.getElementById('opt-aesthetic').value,
       context:   document.getElementById('opt-context').value.trim(),
@@ -980,13 +982,15 @@ const App = {
 
     const ratioInstruction = `Generate the image in ${ratioDesc}.`;
 
+    const realism = `Photorealistic iPhone photography. Shot on iPhone 15 Pro with natural available light — no studio lighting, no flash, no professional setup. Hyper-realistic, looks exactly like a real consumer photo. Authentic imperfections: slight lens distortion, natural shadows, real depth of field. NOT a render, NOT stock photography, NOT advertising imagery.`;
+
     if (productImg) {
       parts.push({ inlineData: { mimeType: productImg.mimeType, data: productImg.data } });
       parts.push({
-        text: `The image above shows the product to feature. Generate a new realistic UGC lifestyle photo that naturally includes this exact product (same color, shape, design). ${ratioInstruction} Scene: ${prompt}`
+        text: `${realism} The image above shows the product to feature — reproduce it accurately (same color, shape, branding). ${ratioInstruction} Scene: ${prompt}`
       });
     } else {
-      parts.push({ text: `Generate a realistic UGC lifestyle photo. ${ratioInstruction} ${prompt}` });
+      parts.push({ text: `${realism} ${ratioInstruction} ${prompt}` });
     }
 
     const body = {
@@ -1170,7 +1174,12 @@ ${pageText}`;
 }
 
 function PROMPT_BUILDER(d, personDesc, aestheticDesc, shotList, opts) {
-  return `You are an expert UGC content director at a top creative agency. Create hyper-realistic image generation prompts for authentic user-generated content lifestyle photography.
+  const hasLifestyle = opts.shots.some(s => s === 'lifestyle');
+  const hasDetail    = opts.shots.some(s => s === 'detail');
+  const humanShots   = ['hold','unboxing','social','outdoor'];
+  const noHumanShots = ['lifestyle','detail'];
+
+  return `You are an expert UGC content director at a top creative agency. Create hyper-realistic image generation prompts for authentic user-generated content photography — every image must look like it was genuinely taken on an iPhone by a real consumer, not produced in a studio.
 
 PRODUCT BRIEF:
 - Product: ${d.productName}
@@ -1185,23 +1194,35 @@ PRODUCT BRIEF:
 ${opts.context ? '- Extra context: ' + opts.context : ''}
 
 GENERATION SETTINGS:
-- Creator/model: ${personDesc}
+- Creator/model (for human shots only): ${personDesc}
 - Visual aesthetic: ${aestheticDesc}
 
 SHOTS TO CREATE:
 ${shotList}
 
-PROMPT REQUIREMENTS — each prompt must:
-1. Feature ${personDesc} naturally interacting with the ${d.productColor} ${d.productName}
-2. Describe a realistic non-professional phone photo (NOT a studio shoot)
-3. Include specific details: exact location, time of day, natural lighting conditions
-4. Describe the person naturally (relaxed posture, genuine expression, relatable appearance)
-5. Reference the product accurately: color, how it's held/positioned/used
-6. Capture an authentic, slightly imperfect quality — like a real person actually posted it
-7. Be 90-130 words long
-8. End every prompt with: ", authentic UGC content, shot on iPhone, natural available light, no professional lighting or studio setup"
+CRITICAL RULES — apply to EVERY prompt:
 
-Return ONLY a JSON array of ${opts.shots.length} prompt strings. No other text.
+HUMAN PRESENCE RULES (strictly enforced):
+- Shot types ${humanShots.join(', ').toUpperCase()}: Feature ${personDesc} naturally in the scene
+- Shot types ${noHumanShots.join(', ').toUpperCase()}: ABSOLUTELY NO people, NO hands, NO body parts whatsoever — product only, beautifully placed in its environment
+
+iPhone REALISM RULES (strictly enforced — every single prompt must feel like a real iPhone photo):
+1. Shot on iPhone 15 Pro, natural available light only — no flash, no ring lights, no studio setup
+2. Slightly imperfect framing — not perfectly centered, real-person composition
+3. Natural depth of field — soft background blur (Portrait mode feel), sharp subject
+4. Real-world clutter is fine — a coffee cup nearby, keys on the counter, an open book — authentic environmental context
+5. Authentic, slightly imperfect quality — like a real consumer posted this to their Instagram story
+6. Specific location + time of day + lighting condition in every prompt (e.g. "morning light streaming through kitchen window", "golden hour on a wooden deck", "overcast afternoon at a café table")
+
+PRODUCT ACCURACY:
+- Always reference the exact product color and name
+- Describe how it is held, placed, or positioned precisely
+- If two prompts share the same shot type, vary the scene, location, and angle significantly
+
+Each prompt must be 90–130 words long.
+End every prompt with: ", shot on iPhone 15 Pro, natural light, authentic UGC, no studio"
+
+Return ONLY a JSON array of exactly ${opts.shots.length} prompt strings. No other text.
 ["prompt 1", "prompt 2", ...]`;
 }
 
