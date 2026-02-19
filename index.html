@@ -981,7 +981,7 @@ const App = {
     const ratioInstruction = `Generate the image in ${ratioDesc}.`;
 
     if (productImg) {
-      parts.push({ inline_data: { mime_type: productImg.mimeType, data: productImg.data } });
+      parts.push({ inlineData: { mimeType: productImg.mimeType, data: productImg.data } });
       parts.push({
         text: `The image above shows the product to feature. Generate a new realistic UGC lifestyle photo that naturally includes this exact product (same color, shape, design). ${ratioInstruction} Scene: ${prompt}`
       });
@@ -991,7 +991,7 @@ const App = {
 
     const body = {
       contents: [{ parts }],
-      generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+      generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
     };
 
     const data = await this._gemini(this.IMAGE_MODEL, body);
@@ -999,11 +999,10 @@ const App = {
 
     const responseParts = data.candidates?.[0]?.content?.parts || [];
 
-    // Check for image data
-    for (const p of responseParts) {
-      if (p.inline_data?.data) {
-        return { data: p.inline_data.data, mimeType: p.inline_data.mime_type || 'image/jpeg' };
-      }
+    // Check for image data (API response uses camelCase inlineData)
+    const imgPart = responseParts.find(p => p.inlineData?.data);
+    if (imgPart) {
+      return { data: imgPart.inlineData.data, mimeType: imgPart.inlineData.mimeType || 'image/jpeg' };
     }
 
     // No image returned — surface the actual reason
